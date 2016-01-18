@@ -1,0 +1,49 @@
+#!/usr/bin/env ruby
+
+require 'optparse'
+require 'shellwords'
+require 'net/http'
+
+options = {}
+apple_tv = 'apple-tv.local'
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: airplay [options]"
+
+  opts.on("-fFORMAT", "--format=FORMAT", "Set explicit format") do |format|
+    options[:format] = format
+  end
+
+  opts.on("-hHOST", "--host=HOST", "Set Apple TV host") do |host|
+    apple_tv = host
+  end
+end.parse!
+
+
+url = `youtube-dl --get-url #{options.flat_map{|k,v| ["--#{k}", v] }.shelljoin} #{ARGV.shelljoin}`.strip
+
+p url
+p options
+p ARGV
+p apple_tv
+puts url
+
+start = <<-START
+Content-Location: #{url}
+Start-Position: 0
+START
+
+http = Net::HTTP.new(apple_tv, 7000)
+http.keep_alive_timeout = 10
+
+http.start do
+
+http.set_debug_output(STDOUT)
+http.request_post('/play', start, 'User-Agent' => 'MediaControl/1.0', 'Content-Type' => 'text/parameters')
+
+begin
+ scrub = http.request_get('/scrub')
+ puts scrub.body
+ sleep 5
+end while scrub.is_a?(Net::HTTPSuccess)
+end
