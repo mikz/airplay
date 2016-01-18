@@ -7,8 +7,8 @@ require 'net/http'
 options = {}
 apple_tv = 'apple-tv.local'
 
-OptionParser.new do |opts|
-  opts.banner = "Usage: airplay [options]"
+optparse = OptionParser.new do |opts|
+  opts.banner = "Usage: airplay [options] URL"
 
   opts.on("-fFORMAT", "--format=FORMAT", "Set explicit format") do |format|
     options[:format] = format
@@ -17,16 +17,18 @@ OptionParser.new do |opts|
   opts.on("-hHOST", "--host=HOST", "Set Apple TV host") do |host|
     apple_tv = host
   end
-end.parse!
+end
 
+optparse.parse!
+
+if ARGV.empty?
+  warn optparse
+  exit!
+end
 
 url = `youtube-dl --get-url #{options.flat_map{|k,v| ["--#{k}", v] }.shelljoin} #{ARGV.shelljoin}`.strip
 
-p url
-p options
-p ARGV
-p apple_tv
-puts url
+puts "Will play: #{url} on #{apple_tv}"
 
 start = <<-START
 Content-Location: #{url}
