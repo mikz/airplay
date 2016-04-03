@@ -8,13 +8,13 @@ options = {}
 apple_tv = 'apple-tv.local'
 
 optparse = OptionParser.new do |opts|
-  opts.banner = "Usage: airplay [options] URL"
+  opts.banner = 'Usage: airplay [options] URL'
 
-  opts.on("-fFORMAT", "--format=FORMAT", "Set explicit format") do |format|
+  opts.on('-fFORMAT', '--format=FORMAT', 'Set explicit format') do |format|
     options[:format] = format
   end
 
-  opts.on("-hHOST", "--host=HOST", "Set Apple TV host") do |host|
+  opts.on('-hHOST', '--host=HOST', 'Set Apple TV host') do |host|
     apple_tv = host
   end
 end
@@ -26,7 +26,7 @@ if ARGV.empty?
   exit!
 end
 
-url = `youtube-dl --get-url #{options.flat_map{|k,v| ["--#{k}", v] }.shelljoin} #{ARGV.shelljoin}`.strip
+url = `youtube-dl --get-url #{options.flat_map { |k, v| ["--#{k}", v] }.shelljoin} #{ARGV.shelljoin}`.strip
 
 puts "Will play: #{url} on #{apple_tv}"
 
@@ -40,12 +40,33 @@ http.keep_alive_timeout = 10
 
 http.start do
 
-http.set_debug_output(STDOUT)
-http.request_post('/play', start, 'User-Agent' => 'MediaControl/1.0', 'Content-Type' => 'text/parameters')
+  http.request_post('/play', start, 'User-Agent' => 'MediaControl/1.0', 'Content-Type' => 'text/parameters')
 
-begin
- scrub = http.request_get('/scrub')
- puts scrub.body
- sleep 5
-end while scrub.is_a?(Net::HTTPSuccess)
+  state = :loading
+
+  begin
+    scrub = http.request_get('/scrub')
+    status = scrub.body.split("\n").map { |line| line.split(': ') }.to_h
+
+    duration = Float(status['duration'])
+
+    case state
+      when :loading
+        if duration > 0
+          state = :playing
+        end
+      when :playing
+        if duration == 0
+          state = :stopped
+        end
+      when :stopped
+        exit
+    end
+
+    begin
+      sleep 5
+    rescue Interrupt
+      exit
+    end
+  end while scrub.is_a?(Net::HTTPSuccess)
 end
